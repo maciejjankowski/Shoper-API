@@ -23,6 +23,9 @@ TODO
 -----------
 
 [] Refactor processError function to use apiCall
+
 [] Refactor API functions to take two parameters in form: `APIFunction( arguments, cb)` where arguments is a product or category, etc.
+
 [] remove session key from globals (**ugh!**)
+
 [] or maybe remove all the API functions and leave just the ApiCall?
