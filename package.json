@@ -1,0 +1,14 @@
+{
+  "name": "Shoper.pl_API",
+  "version": "0.0.1",
+  "author": "b-good Maciej Artur Jankowski",
+  "description": "API module for Shoper.pl",
+  "main": "./api.js",
+  "dependencies": {
+    "request": "*",
+    "nconf": "~0.6.8"
+  },
+  "engines": {
+    "node": ">=0.6.x"
+  }
+}

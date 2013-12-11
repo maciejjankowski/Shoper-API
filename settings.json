@@ -1,0 +1,11 @@
+{
+	"categoryDefaultParentId" : 666,
+	"apiUrl": "http://www.yourstore.pl/webapi/json/",
+	"apiUsername": "b-good",
+	"apiPassword" : "mama123",
+	"save_api": 1,
+	"exit_on_error" : 0,
+	"overwrite_description" : 1,
+	"update_products" : 1,
+	"debug_params":1
+}
