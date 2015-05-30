@@ -13,7 +13,7 @@ nconf.env().file({file: 'settings.json'});
 var url = nconf.get("apiUrl");
 
 var apiUsername = nconf.get("apiUsername") || "b-good";
-var apiPassword = nconf.get("apiPassword") || "Maciej2013";
+var apiPassword = nconf.get("apiPassword") || "test123";
 
 var key = '';
 //url = 'http://localhost:8081/test.php';
