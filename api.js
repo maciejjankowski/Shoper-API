@@ -1,61 +1,120 @@
+var Q = require('q');
 var u = require('util');
 var request = require('request');
-var colors = require('colors');
-var fs = require('fs');
+// var colors = require('colors');
+// var fs = require('fs');
+var _ = require('lodash');
 
+var L = {log:console.log, warn:console.warn, error:console.error, info:console.info};//require('./logor.js');
 var nconf = require('nconf');
-
+var Q = require('q');
 
 nconf.env().file({file: 'settings.json'});
 var url = nconf.get("apiUrl");
 
-var apiUsername = nconf.get("apiUsername");
-var apiPassword = nconf.get("apiPassword");
+var apiUsername = nconf.get("apiUsername") || "b-good";
+var apiPassword = nconf.get("apiPassword") || "Maciej2013";
 
 var key = '';
-
+//url = 'http://localhost:8081/test.php';
+//var ii= 15;
 {
 function _i(arg){
 	return u.inspect(arg, {colors:true, depth:5});
 }
 
-function L(arg){
-	console.log(arg);
-	fs.appendFile('api.txt', u.inspect(arg) + "\n", function (err) {
-		if (err) throw err;
-	});
-//	process.nextTick();
-}
-function LR(arg){
-	fs.appendFile('api.error.txt', u.inspect(arg)+"\n", function (err) {
-		if (err) throw err;
-	});
-	console.log('\033[31m' + arg + '\033[37m');
-}
-function LY(arg){
-	fs.appendFile('api.txt', u.inspect(arg)+"\n", function (err) {
-		if (err) throw err;
-	});
-	console.log('\033[33m' + arg + '\033[37m');
-}
+
 }
 
+
+function apiCallQ(params, cb){
+  var deferred = Q.defer();
+
+  var save_api = nconf.get("save_api");
+  var debug_params = nconf.get("debug_params") || 0;
+
+  if (debug_params)
+    L.warn("api call:", u.inspect( params, {depth:6, colors: true} ) );
+
+  if (typeof cb != "function")
+    cb = function (){};
+
+  if (save_api || params.method == "login" || params.params[1] == "category.tree" || params.params[1] == "product.info"|| params.params[1] == "category.info" || params.params[1] == "internals.validation.errors" ){
+    request(
+
+        {
+          method : 'POST',
+          url: url,
+          body: "json=" + JSON.stringify(params)
+          //			,encoding: null
+        },
+
+        function (error, response, body) {
+          if (!error && response.statusCode == 200) {
+            try{
+              body = JSON.parse(body);
+            }catch(e){
+              L.error("Błąd parsowania:\n" + body); //error in the above string(in this case,yes)!
+            }
+
+
+            if ( body && typeof body.error != "undefined" ) {
+              L.error( "Wystąpił błąd: " + body.error + " (Kod błędu: " + body.code + ")" );
+              console.dir('a', params);
+              if (body.code == 2){
+                throw new Error(body.error);
+              }
+              processError(cb);
+//              cb(body);
+
+            }	else if (body == 0 || body == -1){
+//							L.error("Wystąpił błąd w obsłudze API 1-----------------------------------\n"
+//                  + _i(params) + "\n===========================\n"
+//                  + _i(body)+"\n^^^^^^^^^^^^^^^^^^^");
+              // TODO jakieś mądrzejsze to powinno być, ale na razie body = 0 lub body = -1 oznacza niekrytyczny błąd w api
+              // todo : ... na przykład duplikat produktu, więc odpalamy processError, żeby się dowiedzieć
+              processError(cb);
+//              cb(body);
+            }
+
+            else {
+              deferred.resolve(body);
+              cb( body );
+            }
+
+          } else { // jeśli nie 200
+            L.info("Poważny błąd: " + _i(error));
+            L.log("body >", body, "< end body");
+            if (nconf.get("exit_on_error") == 1) process.exit(9);
+            cb(error)
+          }
+        }
+
+    ); //request
+    return deferred.promise;
+  }
+  else
+  {
+    L.error("fake >", _i([params.params[1], params.params[2] ] ), "< fake" );
+    cb( "mock" );
+  }
+
+//  deferred.promise;
+}// apiCall
+
 function apiCall(params, cb){
+//  var deferred = Q.defer();
+
 	var save_api = nconf.get("save_api");
 	var debug_params = nconf.get("debug_params") || 0;
 
 	if (debug_params)
-		console.warn( u.inspect( params, {depth:6, colors: true} ) );
-
-//	if (typeof params != "undefined" && typeof params.params != "undefined" &&  params.method != "login")
-//			LY("api call: " + params.params[1]);
-//	if (params.method == "login")
-//		LY("login");
+		L.warn("api call:", u.inspect( params, {depth:6, colors: true} ) );
 
 	if (typeof cb != "function")
 		cb = function (){};
 
-	if (save_api || params.method != "product.create" || params.method != "category.create")
+	if (save_api || params.method == "login" || params.params[1] == "category.tree" || params.params[1] == "product.info"|| params.params[1] == "category.info" || params.params[1] == "internals.validation.errors" ){
 			request(
 
 				{
@@ -67,50 +126,67 @@ function apiCall(params, cb){
 
 				function (error, response, body) {
 					if (!error && response.statusCode == 200) {
+            try{
+              body = JSON.parse(body);
+            }catch(e){
+              L.error("Błąd parsowania:\n" + body); //error in the above string(in this case,yes)!
+            }
 
-						body = JSON.parse(body);
 
-						if ( typeof body.error != "undefined" ) {
-							LR( "Wystąpił błąd: " + body.error + " (Kod błędu: " + body.code + ")" );
-							processError(0, cb);
+						if ( body && typeof body.error != "undefined" ) {
+							L.error( "Wystąpił błąd: " + body.error + " (Kod błędu: " + body.code + ")" );
+              console.dir('a', params);
+              if (body.code == 2){
+                throw new Error(body.error);
+              }
+							processError(cb);
+//              cb(body);
 
 						}	else if (body == 0 || body == -1){
-							LR("Wystąpił błąd w obsłudze API:\n" + _i(params) + "\n===========================\n"+ _i(body)+"\n^^^^^^^^^^^^^^^^^^^");
-//							i(params);
-							debugger;
-							processError(0, cb);
-
+//							L.error("Wystąpił błąd w obsłudze API 1-----------------------------------\n"
+//                  + _i(params) + "\n===========================\n"
+//                  + _i(body)+"\n^^^^^^^^^^^^^^^^^^^");
+							// TODO jakieś mądrzejsze to powinno być, ale na razie body = 0 lub body = -1 oznacza niekrytyczny błąd w api
+              // todo : ... na przykład duplikat produktu, więc odpalamy processError, żeby się dowiedzieć
+							processError(cb);
+//              cb(body);
 						}
 
-						else
+						else {
 							cb( body );
+            }
 
 					} else { // jeśli nie 200
-						L("Poważny błąd: " + _i(error));
-//						console.log();
-						if (nconf.get("exit_on_error") == 1) process.exit(-1);
+						L.info("Poważny błąd: " + _i(error));
+						L.log("body >", body, "< end body");
+						if (nconf.get("exit_on_error") == 1) process.exit(9);
+            cb(error)
 					}
 				}
 
 		); //request
 
+  }
 	else
-		LY(_i(params));
+  {
+    L.error("fake >", _i([params.params[1], params.params[2] ] ), "< fake" );
+    cb( "mock" );
+  }
 
-}
+//  deferred.promise;
+}// apiCall
 
 
 
-function processError (arg, cb){
-	if (typeof cb != "function")
-		cb = function (){};
+function processError (cb){
+
 
 	var params = {
 		'method' : 'call',
 		'params' : [key, 'internals.validation.errors', null ]
-	}
+	};
 
-	LR('processError');
+//	L.error('processError');
 
 	request({
 		method : 'POST',
@@ -121,49 +197,45 @@ function processError (arg, cb){
 
 		if (!error && response.statusCode == 200) {
 
-			body = JSON.parse(body);
+      try{
+        body = JSON.parse(body);
+      }catch(e){
+        L.error("Błąd parsowania:\n"+body); //error in the above string(in this case,yes)!
+      }
+
 			if (typeof body != "undefined" && body != null){
 
-				LR("> Błąd danych, body: " + typeof body + "\n" + _i(body) +"\n<-");
+				L.error("> Błąd danych:\n" + _i(body) +"<--------------------------");
 				body = body[0];
-//				LY(body);
-				var a= typeof body != "undefined"
-				var b= body.indexOf("'code' is not valid")
-				var c = body.indexOf("istnieje")
-				if (a && b && c){
-					LY('Produkt o podanym kodzie istnieje');
-					var re = /ść '(.*)'/;
-					var res = re.exec(body)
-					if(res) cb( { objId : res[1],type:"code" } );
+//				L.warn(body);
+				if (typeof body != "undefined" && ~body.indexOf("'code' is not valid") && ~body.indexOf("istnieje")){
+					console.warn(body);
+					var re = /ść '(.*)'/; // WTF
+					var res = re.exec(body);
+					if(res) {
+            if (typeof cb == "function")
+              cb( { objId : res[1], type:"code" } );
+          }
 				}
 			} else {
-				LY('inspecting: '+ _i(body))
-				cb();
+				L.warn('inspecting: '+ _i(body));
+        if (typeof cb == "function")
+          cb();
 			}
 
 		} else {
-			LR("Błąd komunikacji: "+ _i(error));
+			L.error("Błąd komunikacji: "+ _i(error));
 		}
-
-		if (arg == 1)
-		{
-			process.nextTick(function(){
-				if (nconf.get("exit_on_error") == 1) process.exit(-1);
-			})
-		}
-			else {
-//			cb();
-		}
-			;
 	});
 }
 
 
-exports.productCreate = function ( prodName, prodPrice, prodCode, catId, details, cb ){
+exports.createProduct = function ( prodName, prodPrice, prodCode, catId, details, cb ){
 
 //	args = [].slice.call(arguments);
-//	L(args);
-//	process.exit(-1);
+//	L.info(args);
+
+  // merge
 
 	var prod = {
 		"producer_id" : details.producer_id,
@@ -175,10 +247,10 @@ exports.productCreate = function ( prodName, prodPrice, prodCode, catId, details
 //		"pkwiu" : null,
 		"stock" : {
 			"price" : prodPrice
-//			,"stock" : null,
+			,"stock" : details.stock || null
 //			"warn_level" : null,
 //			"sold" : null,
-			,"weight" : details.weight
+			,"weight" : details.weight || 5
 //			"availability_id" : null,
 //			"delivery_id" : null,
 //			"gfx_id" : null,
@@ -186,8 +258,8 @@ exports.productCreate = function ( prodName, prodPrice, prodCode, catId, details
 		"translations" : {
 			"pl_PL" : {
 				"name" : prodName
-				,"short_description" : details.desc
-				,"description" : details.desc
+				,"short_description" : ""
+				,"description" : details.desc || prodName
 				,"active" : 0
 //				,"seo_title" : null,
 //				"seo_description" : null,
@@ -208,16 +280,15 @@ exports.productCreate = function ( prodName, prodPrice, prodCode, catId, details
 		]
 	};
 
-//	process.exit(-1);
 	apiCall(params, cb);
 }
 
-exports.productImageSave = function ( prodId, imgUrl, prodName, cb ){
+exports.createImage = function ( prodId, imgUrl, prodName, cb ){
 
 	var img = {
 		file  : prodName + "_" + prodId + "_zdjecie.jpg"
 		, content : null
-		, url  :imgUrl
+		, url  : imgUrl
 		, name : prodName
 	};
 
@@ -229,12 +300,25 @@ exports.productImageSave = function ( prodId, imgUrl, prodName, cb ){
 			[parseInt(prodId), img, true]
 		]
 	};
-	// console.warn( u.inspect( params, {depth:6, colors: true} ) );
+
 	apiCall(params, cb);
 }
 
+exports.categoryDelete = function (id, cb ){
 
-exports.productSave = function (productId, product, cb ){
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      key,
+      'category.delete',
+      [id, false]
+    ]
+  };
+
+  apiCall(params, cb);
+};
+
+exports.saveProduct = function (productId, product, cb ){
 
 	var params = {
 		'method' : 'call',
@@ -244,12 +328,12 @@ exports.productSave = function (productId, product, cb ){
 			[productId, product, false]
 		]
 	};
-	// console.warn( u.inspect( params, {depth:6, colors: true} ) );
+
 
 	apiCall(params, cb);
-}
+};
 
-exports.categoryCreate = function ( name, parentId, cb ){
+exports.createCategory = function createCategory( name, parentId, cb ){
 
 	if (typeof cb != "function")
 		cb = function (){};
@@ -285,7 +369,7 @@ exports.categoryCreate = function ( name, parentId, cb ){
 	apiCall(params, cb)
 }
 
-exports.categorySave = function saveCategory(name, parentId, id, cb){
+exports.saveCategory = function saveCategory(name, parentId, id, cb){
 	if (typeof cb != "function")
 		cb = function (){};
 
@@ -316,7 +400,7 @@ exports.categorySave = function saveCategory(name, parentId, id, cb){
 	apiCall(params, cb)
 }
 
-exports.categoryInfo = function (id, cb){
+exports.getCategory = function getCategory(id, cb){
 	if (typeof cb != "function")
 		cb = function (){};
 
@@ -332,32 +416,57 @@ exports.categoryInfo = function (id, cb){
 	apiCall(params, cb)
 }
 
-exports.productInfo = function (id, cb){
+exports.categoryTree = function getCategory(cb){
+  if (typeof cb != "function")
+    cb = function (){};
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      key,
+      'category.tree',
+      []
+    ]
+  };
+
+  apiCall(params, cb)
+}
+
+exports.getProduct = function getProduct(id, cb){
 	if (typeof cb != "function")
 		cb = function (){};
+
+//  id
+//  translations (boolean) - czy zwrocić dodatkowo informacje o tłumaczeniach
+//  options (boolean) - czy zwrócić dodatkowo informacje o wariantach
+//  gfx (boolean) - czy zwrócić dodatkowo informacje o zdjęciach
+//  attributes (boolean) - czy zwrócić dodatkowo informacje o atrybutach
+//  related
 
 	var params = {
 		'method' : 'call',
 		'params' :	[
 			key,
 			'product.info',
-			[id, true, false, false, false]
+			[id, true, false, false, true, false] //
 		]
 	};
 
-	apiCall(params, cb)
+	return apiCall(params, cb)
 }
 
 exports.productListFilter = function getProduct(conditions, orderBy, limit, cb){
-	if (typeof cb != "function")
-		cb = function (){};
-	if (typeof conditions == "string")
-		conditions = {"stock.code" : conditions};
-	if (typeof orderBy == "undefined" || orderBy == "" || orderBy == null)
-		orderBy = "product_id";
-	if (typeof limit == "number" || limit == "" || limit == null)
-		limit = 1;
 
+	if (typeof conditions == "string")
+		conditions = {"stock.code" : conditions };
+
+  if (typeof orderBy == "undefined"){
+    orderBy = "product_id";
+    limit =1
+  }
+
+	if (typeof limit == "undefined")
+		limit = 1;
 
 	var params = {
 		'method' : 'call',
@@ -368,27 +477,197 @@ exports.productListFilter = function getProduct(conditions, orderBy, limit, cb){
 		]
 	};
 
-	apiCall(params, cb)
-}
+	return apiCall(params, cb)
+};
+
+exports.getImages = function(id, cb){
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      key,
+      'product.images',
+      [id]
+    ]
+  };
+  return apiCall(params, cb)
+};
+
+exports.deleteImage = function(id, imgId, cb){
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      key,
+      'product.image.delete',
+      [id, imgId]
+    ]
+  };
+  return apiCall(params, cb)
+};
 
 exports.login = function (cb){
 
-	if (typeof cb == "undefined"){
-		cb = function(){};
-	}
 	var params = {
 		'method' : 'login',
 		'params' : [apiUsername, apiPassword]
-	}
+	};
 
 	if (key == '')
 		apiCall(params, function(content){
 			key = content;
-			cb();
+      if (typeof cb != "undefined"){
+        cb(content);
+      }
 		});
 	else
 		cb();
 };
 
+exports.loginQ = function (cb){
+  var deferred = Q.defer();
+
+  var params = {
+    'method' : 'login',
+    'params' : [apiUsername, apiPassword]
+  };
+
+  if (key == '')
+    apiCall(params, function(content){
+      key = content;
+      if (typeof cb != "undefined"){
+        deferred.resolve(content);
+//        cb(content);
+      }
+    });
+  else{
+//    cb();
+    deferred.reject()
+  }
+
+  return deferred.promise;
+};
 
 exports.processError = processError;
+
+exports.product_attributes = function(arrayOfIds, cb){
+  if (Array.isArray(arrayOfIds)) {
+    var params = {
+      'method' : "call",
+      "params" : [
+        key,
+        "product.attributes",
+        arrayOfIds
+      ]
+    };
+
+    return apiCall(params, cb)
+
+  } else {
+    return new Error("argument nie jest tablicą");
+  }
+};// product_attributes
+
+
+exports.attribute_group_list = function(o, cb){
+
+  var params = {
+      'method' : "call",
+      "params" : [
+        key,
+        "attribute.group.list",
+        [o.extended, o.attributes, o.attributeGroupList]
+      ]
+    };
+
+    return apiCall(params, cb)
+
+};// product_attributes
+
+
+exports.product_list = function _product_list(o, cb){
+//  extended (boolean) - czy zwrócić informacje o obiektach
+//  translations (boolean) - czy zwrocić dodatkowo informacje o tłumaczeniach
+//  options (boolean) - czy zwrócić dodatkowo informacje o wariantach
+//  gfx (boolean) - czy zwrócić dodatkowo informacje o zdjęciach
+//  attributes (boolean) - czy zwrócić dodatkowo informacje o atrybutach
+//  products (array|null) - tablica identyfikatorów obiektów do pobrania lub **null** w celu pobrania wszystkich dostępnych obiektów
+
+  var params = {
+    'method' : "call",
+    "params" : [
+      key,
+      "product.list",
+      [
+            o.extended || false,
+            o.translations || false,
+            o.options || false,
+            o.gfx || false,
+            o.attributes || false,
+            o.products || null
+      ]
+    ]
+  };
+
+  return apiCall(params, cb)
+
+};
+
+exports.product_attributes_save = function(o, cb){
+  var params = {
+    'method' : "call",
+    "params" : [
+        key,
+        "product.attributes.save",
+        [
+          o.id,
+          o.data,
+          o.force || false
+        ]
+    ]
+  };
+
+  return apiCall(params, cb)
+};
+
+exports.attribute_group_list = function(o, cb){
+//  extended (boolean) - czy zwrócić tylko listę identyfikatorów (false), czy tablicę, której wartościami są tablice asocjacyjne informacji o żądanych obiektach (true)
+//  attributes (boolean) - czy pobrać informacje o atrybutach
+//  groups (array|null) - tablica identyfikatorów obiektów do pobrania lub null w celu pobrania wszystkich dostępnych obiektów
+
+  var params = {
+    'method' : "call",
+    "params" : [
+      key,
+      "attribute.group.list",
+      [
+            o.extended || false,
+            o.attributes || false,
+            o.groups || null
+      ]
+    ]
+  };
+
+  return apiCall(params, cb)
+};
+
+
+exports.product_attributes_save = function(o, cb){
+//  id (int) - identyfikator obiektu
+//  data (array) - tablica asocjacyjna, której kluczami są identyfikatory atrybutów a wartościami, ustawiane wartości atrybutu dla produktu
+//  force (boolean) - czy wymusić modyfikację obiektu mimo istniejącej blokady innego administratora
+
+  var params = {
+    'method' : "call",
+    "params" : [
+      key,
+      "product.attributes.save",
+      [
+            o.id,
+            o.data,
+            o.force || false
+      ]
+    ]
+  };
+
+  return apiCall(params, cb)
+};
+//834
