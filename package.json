@@ -1,12 +1,15 @@
 {
   "name": "shoper-pl",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "Maciej Artur Jankowski",
   "description": "API module for Shoper.pl",
   "main": "./api.js",
   "dependencies": {
-    "request": "*",
-    "nconf": "~0.6.8"
+    "lodash": "^3.9.3",
+    "nconf": "~0.6.8",
+    "q": "^1.4.1",
+    "request": "^2.57.0",
+    "util": "^0.10.3"
   },
   "engines": {
     "node": ">=0.6.x"
