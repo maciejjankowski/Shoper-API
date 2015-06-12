@@ -513,25 +513,21 @@ exports.getProduct = function getProduct(id, cb){
 	return apiCall(params, cb)
 }
 
-exports.productListFilter = function getProduct(conditions, orderBy, limit, cb){
+exports.productListFilter = function getProduct(o, cb){
 
-	if (typeof conditions == "string")
-		conditions = {"stock.code" : conditions };
-
-  if (typeof orderBy == "undefined"){
-    orderBy = "product_id";
-    limit =1
+  if (typeof o.orderBy === "undefined"){
+    o.orderBy = null;
   }
 
-	if (typeof limit == "undefined")
-		limit = 1;
+  if (typeof o.limit == "undefined")
+    o.limit = null;
 
 	var params = {
 		'method' : 'call',
 		'params' :	[
 			exports.key,
 			'product.list.filter',
-			[conditions, orderBy, limit]
+      [o.conditions, o.orderBy, o.limit]
 		]
 	};
 
