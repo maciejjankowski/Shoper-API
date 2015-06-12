@@ -13,8 +13,17 @@ exports.apiPassword = nconf.get("apiPassword") || "test123";
 
 exports.key = '';
 
+exports.product = {
+  list: {},
+  image : {}
+};
 
-exports.product = {list: {}};
+exports.category = {};
+
+exports.attribute = {
+  group: {}
+};
+
 //url = 'http://localhost:8081/test.php';
 //var ii= 15;
 function _i(arg){
@@ -22,7 +31,7 @@ function _i(arg){
 }
 
 
-function apiCallQ(params){
+function apiCall(params, cb){
   var deferred = Q.defer();
 
   var save_api = nconf.get("save_api");
@@ -56,6 +65,10 @@ function apiCallQ(params){
               if (body.code == 2){
                 throw new Error(body.error);
               }
+
+              if (cb){
+                processError(cb)
+              } else
               processErrorQ(deferred);
 //              cb(body);
 
@@ -65,19 +78,28 @@ function apiCallQ(params){
 //                  + _i(body)+"\n^^^^^^^^^^^^^^^^^^^");
               // TODO jakieś mądrzejsze to powinno być, ale na razie body = 0 lub body = -1 oznacza niekrytyczny błąd w api
               // todo : ... na przykład duplikat produktu, więc odpalamy processError, żeby się dowiedzieć
-              processErrorQ(deferred);
+              if (cb){
+                processError( cb );
+              } else
+                processErrorQ(deferred);
 //              cb(body);
             }
 
             else {
+              if (cb){
+                cb( body );
+              } else
               deferred.resolve(body);
-//              cb( body );
+//
             }
 
           } else { // jeśli nie 200
             L.info("Poważny błąd: " + _i(error));
             L.log("body >", body, "< end body");
             if (nconf.get("exit_on_error") == 1) process.exit(9);
+            if (cb){
+              cb( error);
+            } else
             deferred.reject(error)
           }
         }
@@ -93,82 +115,6 @@ function apiCallQ(params){
 
 //  deferred.promise;
 }// apiCall
-
-function apiCall(params, cb){
-//  var deferred = Q.defer();
-
-	var save_api = nconf.get("save_api");
-	var debug_params = nconf.get("debug_params") || 0;
-
-	if (debug_params)
-		L.warn("api call:", u.inspect( params, {depth:6, colors: true} ), JSON.stringify(params) );
-
-	if (typeof cb != "function")
-		cb = function (){};
-
-	if (save_api || params.method == "login" || params.params[1] == "category.tree" || params.params[1] == "product.info"|| params.params[1] == "category.info" || params.params[1] == "internals.validation.errors" ){
-			request(
-
-				{
-					method : 'POST',
-					url: exports.url,
-					body: "json=" + JSON.stringify(params)
-	//			,encoding: null
-				},
-
-				function (error, response, body) {
-					if (!error && response.statusCode == 200) {
-            try{
-              body = JSON.parse(body);
-            }catch(e){
-              L.error("Błąd parsowania:\n" + body); //error in the above string(in this case,yes)!
-            }
-
-
-						if ( body && typeof body.error != "undefined" ) {
-							L.error( "Wystąpił błąd: " + body.error + " (Kod błędu: " + body.code + ")" );
-              console.dir(params);
-              if (body.code == 2){
-                throw new Error(body.error);
-              }
-							processError(cb);
-//              cb(body);
-
-						}	else if (body == 0 || body == -1){
-//							L.error("Wystąpił błąd w obsłudze API 1-----------------------------------\n"
-//                  + _i(params) + "\n===========================\n"
-//                  + _i(body)+"\n^^^^^^^^^^^^^^^^^^^");
-							// TODO jakieś mądrzejsze to powinno być, ale na razie body = 0 lub body = -1 oznacza niekrytyczny błąd w api
-              // todo : ... na przykład duplikat produktu, więc odpalamy processError, żeby się dowiedzieć
-//              console.error("body", body);
-							processError(cb);
-//              cb(body);
-						}
-
-						else {
-							cb( body );
-            }
-
-					} else { // jeśli nie 200
-						L.info("Poważny błąd: " + _i(error));
-						L.log("body >", body, "< end body");
-						if (nconf.get("exit_on_error") == 1) process.exit(9);
-            cb(error)
-					}
-				}
-
-		); //request
-
-  }
-	else
-  {
-    L.error("fake >", _i([params.params[1], params.params[2] ] ), "< fake" );
-    cb( "mock" );
-  }
-
-//  deferred.promise;
-}// apiCall
-
 
 
 function processError (cb){
@@ -323,7 +269,60 @@ exports.createProduct = function ( prodName, prodPrice, prodCode, catId, details
 		]
 	};
 
-	apiCall(params, cb);
+	return apiCall(params, cb);
+}
+
+exports.product.create = function ( prodName, prodPrice, prodCode, catId, details ){
+
+//	args = [].slice.call(arguments);
+//	L.info(args);
+
+  // merge
+
+  var prod = {
+    "producer_id" : details.producer_id,
+    "tax_id" : 1,
+    "category_id" : parseInt(catId),
+    "unit_id" : 2,
+//		"other_price" : null,
+    "code" : prodCode,
+//		"pkwiu" : null,
+    "stock" : {
+      "price" : prodPrice
+      ,"stock" : details.stock || null
+//			"warn_level" : null,
+//			"sold" : null,
+      ,"weight" : details.weight || 5
+//			"availability_id" : null,
+//			"delivery_id" : null,
+//			"gfx_id" : null,
+    },
+    "translations" : {
+      "pl_PL" : {
+        "name" : prodName
+        ,"short_description" : ""
+        ,"description" : details.desc || prodName
+        ,"active" : 0
+//				,"seo_title" : null,
+//				"seo_description" : null,
+//				"seo_keywords" : null,
+        ,"order" : 12
+//				"main_page" : null,
+//				"main_page_order" : null
+      }
+    }
+    //*/
+  };
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'product.create',
+      [prod]
+    ]
+  };
+
+  return apiCallQ(params);
 }
 
 exports.createImage = function ( prodId, imgUrl, prodName, cb ){
@@ -347,6 +346,40 @@ exports.createImage = function ( prodId, imgUrl, prodName, cb ){
 	apiCall(params, cb);
 }
 
+exports.product.image.save = function (o){
+  var img = {
+    file  : o.prodName + "_" + o.prodId + "_zdjecie.jpg"
+    , content : null
+    , url  : o.imgUrl
+    , name : o.prodName
+  };
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'product.image.save',
+      [parseInt( o.prodId), img, true]
+    ]
+  };
+
+  apiCallQ(params);
+}
+
+exports.category.delete = function (o, ){
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'category.delete',
+      [o.id, false]
+    ]
+  };
+
+  apiCallQ(params);
+};
+
 exports.categoryDelete = function (id, cb ){
 
   var params = {
@@ -359,6 +392,20 @@ exports.categoryDelete = function (id, cb ){
   };
 
   apiCall(params, cb);
+};
+
+exports.product.save = function (o ){
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'product.save',
+      [o.productId, o.product, false]
+    ]
+  };
+
+  apiCallQ(params);
 };
 
 exports.saveProduct = function (productId, product, cb ){
@@ -375,6 +422,42 @@ exports.saveProduct = function (productId, product, cb ){
 
 	apiCall(params, cb);
 };
+
+exports.category.create = function createCategory( o ){
+
+  if (typeof cb != "function")
+    cb = function (){};
+
+  if (typeof o.parentId == "undefined"){
+    o.parentId = nconf.get("categoryDefaultParentId");
+  }
+
+  var category = {
+    "parent_id" : o.parentId,
+    "order" : 1,
+    "translations" : {
+      "pl_PL" : {
+        "name" : o.name,
+        "description" : "",
+        "active" : 1,
+        "seo_title" : "",
+        "seo_description" : "",
+        "seo_keywords" : ""
+      }
+    }
+  }
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'category.create',
+      [o.category]
+    ]
+  };
+
+  apiCallQ(params, cb)
+}
 
 exports.createCategory = function createCategory( name, parentId, cb ){
 
@@ -410,6 +493,36 @@ exports.createCategory = function createCategory( name, parentId, cb ){
 	};
 
 	apiCall(params, cb)
+}
+
+exports.category.save = function saveCategory(o){
+
+
+  var category = {
+    "parent_id" : o.parentId,
+    "order" : 1,
+    "translations" : {
+      "pl_PL" : {
+        "name" : o.name,
+        "description" : "",
+        "active" : 1,
+        "seo_title" : "",
+        "seo_description" : "",
+        "seo_keywords" : ""
+      }
+    }
+  }
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'category.save',
+      [o.id, o.category, false]
+    ]
+  };
+
+  apiCallQ(params)
 }
 
 exports.saveCategory = function saveCategory(name, parentId, id, cb){
@@ -491,6 +604,34 @@ exports.categoryTreeQ = function getCategory(o){
 
   return apiCallQ(params);
 };
+
+exports.product.info = function getProduct(o, cb){
+
+//  id
+//  translations (boolean) - czy zwrocić dodatkowo informacje o tłumaczeniach
+//  options (boolean) - czy zwrócić dodatkowo informacje o wariantach
+//  gfx (boolean) - czy zwrócić dodatkowo informacje o zdjęciach
+//  attributes (boolean) - czy zwrócić dodatkowo informacje o atrybutach
+//  related
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'product.info',
+      [
+        o.id,
+        o.translations || true,
+        o.options || false,
+        o.gfx || false,
+        o.attributes || true,
+        o.related || false
+      ] //
+    ]
+  };
+
+  return apiCallQ(params, cb)
+}
 
 exports.getProduct = function getProduct(id, cb){
 	if (typeof cb != "function")
@@ -646,8 +787,24 @@ exports.product_attributes = function(arrayOfIds, cb){
     return new Error("argument nie jest tablicą");
   }
 };// product_attributes
+exports.product.attributes = function(o, cb){
+  if (Array.isArray(arrayOfIds)) {
+    var params = {
+      'method' : "call",
+      "params" : [
+        exports.key,
+        "product.attributes",
+        o.ids
+      ]
+    };
 
-exports.attribute_group_list = function(o){
+    return apiCallQ(params, cb)
+
+  } else {
+    return new Error("argument nie jest tablicą");
+  }
+};// product_attributes
+exports.attribute_group_list = exports.attribute.group.list = function(o){
 
   var params = {
       'method' : "call",
@@ -667,7 +824,7 @@ exports.attribute_group_list = function(o){
 };// product_attributes
 
 
-exports.product_list = function _product_list(o, cb){
+exports.product.list = exports.product_list = function _product_list(o, cb){
 //  extended (boolean) - czy zwrócić informacje o obiektach
 //  translations (boolean) - czy zwrocić dodatkowo informacje o tłumaczeniach
 //  options (boolean) - czy zwrócić dodatkowo informacje o wariantach
@@ -712,10 +869,7 @@ exports.product_attributes_save = function(o, cb){
   return apiCall(params, cb)
 };
 
-
-
-
-exports.product_attributes_saveQ = function(o){
+product.attributes.save = exports.product_attributes_saveQ = function(o){
 //  id (int) - identyfikator obiektu
 //  data (array) - tablica asocjacyjna, której kluczami są identyfikatory atrybutów a wartościami, ustawiane wartości atrybutu dla produktu
 //  force (boolean) - czy wymusić modyfikację obiektu mimo istniejącej blokady innego administratora
