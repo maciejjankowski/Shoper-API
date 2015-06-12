@@ -8,12 +8,13 @@ var _ = require('lodash');
 var L = {log:console.log, warn:console.warn, error:console.error, info:console.info};//require('./logor.js');
 var nconf = require('nconf').env().file({file: process.cwd() + '/settings.json'});
 exports.url = nconf.get("apiUrl");
-
-var apiUsername = nconf.get("apiUsername") || "b-good";
-var apiPassword = nconf.get("apiPassword") || "test123";
+exports.apiUsername = nconf.get("apiUsername") || "b-good";
+exports.apiPassword = nconf.get("apiPassword") || "test123";
 
 exports.key = '';
 
+
+exports.product = {list: {}};
 //url = 'http://localhost:8081/test.php';
 //var ii= 15;
 function _i(arg){
@@ -51,7 +52,7 @@ function apiCallQ(params){
 
             if ( body && typeof body.error != "undefined" ) {
               L.error( "Wystąpił błąd: " + body.error + " (Kod błędu: " + body.code + ")" );
-              console.dir('a', params);
+              console.dir('params:', params);
               if (body.code == 2){
                 throw new Error(body.error);
               }
@@ -100,7 +101,7 @@ function apiCall(params, cb){
 	var debug_params = nconf.get("debug_params") || 0;
 
 	if (debug_params)
-		L.warn("api call:", u.inspect( params, {depth:6, colors: true} ) );
+		L.warn("api call:", u.inspect( params, {depth:6, colors: true} ), JSON.stringify(params) );
 
 	if (typeof cb != "function")
 		cb = function (){};
@@ -126,7 +127,7 @@ function apiCall(params, cb){
 
 						if ( body && typeof body.error != "undefined" ) {
 							L.error( "Wystąpił błąd: " + body.error + " (Kod błędu: " + body.code + ")" );
-              console.dir('a', params);
+              console.dir(params);
               if (body.code == 2){
                 throw new Error(body.error);
               }
@@ -139,6 +140,7 @@ function apiCall(params, cb){
 //                  + _i(body)+"\n^^^^^^^^^^^^^^^^^^^");
 							// TODO jakieś mądrzejsze to powinno być, ale na razie body = 0 lub body = -1 oznacza niekrytyczny błąd w api
               // todo : ... na przykład duplikat produktu, więc odpalamy processError, żeby się dowiedzieć
+//              console.error("body", body);
 							processError(cb);
 //              cb(body);
 						}
@@ -211,7 +213,7 @@ function processError (cb){
 			} else {
 				L.warn('inspecting: '+ _i(body));
         if (typeof cb == "function")
-          cb();
+          cb(body);
 			}
 
 		} else {
@@ -534,7 +536,7 @@ exports.productListFilter = function getProduct(o, cb){
 	return apiCall(params, cb)
 };
 
-exports.productListFilterQ = function getProduct(o){
+exports.product.list.filter = function getProduct(o){
 
    if (typeof o.orderBy === "undefined"){
     o.orderBy = null;
@@ -580,14 +582,16 @@ exports.deleteImage = function(id, imgId, cb){
 };
 
 exports.login = function (cb){
-
+  var debug_params = nconf.get("debug_params") || 0;
 	var params = {
 		'method' : 'login',
-		'params' : [apiUsername, apiPassword]
+		'params' : [exports.apiUsername, exports.apiPassword]
 	};
 
 	if (exports.key == '')
 		apiCall(params, function(content){
+      if (debug_params)
+        console.log(content);
 			exports.key = content;
       if (typeof cb != "undefined"){
         cb(content);
@@ -597,21 +601,22 @@ exports.login = function (cb){
 		cb(exports.key);
 };
 
-exports.loginQ = function (apiUsername, apiPassword, apiUrl){
-  exports.apiUrl = apiUrl;
+exports.loginQ = function (){
+  var debug_params = nconf.get("debug_params") || 0;
+
   var deferred = Q.defer();
 
   var params = {
     'method' : 'login',
-    'params' : [apiUsername, apiPassword]
+    'params' : [exports.apiUsername, exports.apiPassword]
   };
 
   if (exports.key == ''){
     apiCall(params, function(content){
+      if (debug_params)
+        console.log(content);
       exports.key = content;
-//      if (typeof cb != "undefined"){
         deferred.resolve(content);
-//      }
     });
   }
   else{
@@ -710,7 +715,7 @@ exports.product_attributes_save = function(o, cb){
 
 
 
-exports.product_attributes_save = function(o, cb){
+exports.product_attributes_saveQ = function(o){
 //  id (int) - identyfikator obiektu
 //  data (array) - tablica asocjacyjna, której kluczami są identyfikatory atrybutów a wartościami, ustawiane wartości atrybutu dla produktu
 //  force (boolean) - czy wymusić modyfikację obiektu mimo istniejącej blokady innego administratora
@@ -728,6 +733,6 @@ exports.product_attributes_save = function(o, cb){
     ]
   };
 
-  return apiCall(params, cb)
+  return apiCallQ(params)
 };
 //834
