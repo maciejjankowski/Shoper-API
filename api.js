@@ -10,7 +10,7 @@ var nconf = require('nconf').env().file({file: process.cwd() + '/settings.json'}
 exports.url = nconf.get("apiUrl");
 
 var apiUsername = nconf.get("apiUsername") || "b-good";
-var apiPassword = nconf.get("apiPassword") || "Maciej2013";
+var apiPassword = nconf.get("apiPassword") || "test123";
 
 exports.key = '';
 
