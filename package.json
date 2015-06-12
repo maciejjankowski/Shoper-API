@@ -1,7 +1,7 @@
 {
-  "name": "Shoper.pl_API",
+  "name": "shoper-pl",
   "version": "0.0.1",
-  "author": "b-good Maciej Artur Jankowski",
+  "author": "Maciej Artur Jankowski",
   "description": "API module for Shoper.pl",
   "main": "./api.js",
   "dependencies": {
@@ -10,5 +10,22 @@
   },
   "engines": {
     "node": ">=0.6.x"
-  }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maciejjankowski/Shoper-API.git"
+  },
+  "keywords": [
+    "shoper.pl",
+    "shoper",
+    "clickshop"
+  ],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/maciejjankowski/Shoper-API/issues"
+  },
+  "homepage": "https://github.com/maciejjankowski/Shoper-API"
 }

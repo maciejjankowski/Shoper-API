@@ -6,28 +6,22 @@ var request = require('request');
 var _ = require('lodash');
 
 var L = {log:console.log, warn:console.warn, error:console.error, info:console.info};//require('./logor.js');
-var nconf = require('nconf');
-var Q = require('q');
-
-nconf.env().file({file: 'settings.json'});
-var url = nconf.get("apiUrl");
+var nconf = require('nconf').env().file({file: process.cwd() + '/settings.json'});
+exports.url = nconf.get("apiUrl");
 
 var apiUsername = nconf.get("apiUsername") || "b-good";
 var apiPassword = nconf.get("apiPassword") || "Maciej2013";
 
-var key = '';
+exports.key = '';
+
 //url = 'http://localhost:8081/test.php';
 //var ii= 15;
-{
 function _i(arg){
 	return u.inspect(arg, {colors:true, depth:5});
 }
 
 
-}
-
-
-function apiCallQ(params, cb){
+function apiCallQ(params){
   var deferred = Q.defer();
 
   var save_api = nconf.get("save_api");
@@ -36,15 +30,12 @@ function apiCallQ(params, cb){
   if (debug_params)
     L.warn("api call:", u.inspect( params, {depth:6, colors: true} ) );
 
-  if (typeof cb != "function")
-    cb = function (){};
-
   if (save_api || params.method == "login" || params.params[1] == "category.tree" || params.params[1] == "product.info"|| params.params[1] == "category.info" || params.params[1] == "internals.validation.errors" ){
     request(
 
         {
           method : 'POST',
-          url: url,
+          url: exports.url,
           body: "json=" + JSON.stringify(params)
           //			,encoding: null
         },
@@ -64,7 +55,7 @@ function apiCallQ(params, cb){
               if (body.code == 2){
                 throw new Error(body.error);
               }
-              processError(cb);
+              processErrorQ(deferred);
 //              cb(body);
 
             }	else if (body == 0 || body == -1){
@@ -73,20 +64,20 @@ function apiCallQ(params, cb){
 //                  + _i(body)+"\n^^^^^^^^^^^^^^^^^^^");
               // TODO jakieś mądrzejsze to powinno być, ale na razie body = 0 lub body = -1 oznacza niekrytyczny błąd w api
               // todo : ... na przykład duplikat produktu, więc odpalamy processError, żeby się dowiedzieć
-              processError(cb);
+              processErrorQ(deferred);
 //              cb(body);
             }
 
             else {
               deferred.resolve(body);
-              cb( body );
+//              cb( body );
             }
 
           } else { // jeśli nie 200
             L.info("Poważny błąd: " + _i(error));
             L.log("body >", body, "< end body");
             if (nconf.get("exit_on_error") == 1) process.exit(9);
-            cb(error)
+            deferred.reject(error)
           }
         }
 
@@ -96,7 +87,7 @@ function apiCallQ(params, cb){
   else
   {
     L.error("fake >", _i([params.params[1], params.params[2] ] ), "< fake" );
-    cb( "mock" );
+    return deferred.resolve( "mock" );
   }
 
 //  deferred.promise;
@@ -119,7 +110,7 @@ function apiCall(params, cb){
 
 				{
 					method : 'POST',
-					url: url,
+					url: exports.url,
 					body: "json=" + JSON.stringify(params)
 	//			,encoding: null
 				},
@@ -183,14 +174,14 @@ function processError (cb){
 
 	var params = {
 		'method' : 'call',
-		'params' : [key, 'internals.validation.errors', null ]
+		'params' : [exports.key, 'internals.validation.errors', null ]
 	};
 
 //	L.error('processError');
 
 	request({
 		method : 'POST',
-		url: url,
+		url: exports.url,
 		body: "json=" + JSON.stringify(params)
 //		,encoding: null
 	}, function(error, response, body){
@@ -229,6 +220,56 @@ function processError (cb){
 	});
 }
 
+function processErrorQ (deferred){
+
+
+  var params = {
+    'method' : 'call',
+    'params' : [exports.key, 'internals.validation.errors', null ]
+  };
+
+//	L.error('processError');
+
+  request({
+    method : 'POST',
+    url: exports.url,
+    body: "json=" + JSON.stringify(params)
+//		,encoding: null
+  }, function(error, response, body){
+
+    if (!error && response.statusCode == 200) {
+
+      try{
+        body = JSON.parse(body);
+      }catch(e){
+        L.error("Błąd parsowania:\n"+body); //error in the above string(in this case,yes)!
+        deferred.reject('błąd parsowania');
+      }
+
+      if (typeof body != "undefined" && body != null){
+
+        L.error("> Błąd danych:\n" + _i(body) +"<--------------------------");
+        body = body[0];
+//				L.warn(body);
+        if (typeof body != "undefined" && ~body.indexOf("'code' is not valid") && ~body.indexOf("istnieje")){
+//          console.warn(body);
+          var re = /ść '(.*)'/; // WTF
+          var res = re.exec(body);
+          if(res) {
+            if (typeof cb == "function")
+              deferred.resolve( { objId : res[1], type:"code" } );
+          }
+        }
+      } else {
+        L.warn('inspecting: '+ _i(body));
+        deferred.reject();
+      }
+
+    } else {
+      L.error("Błąd komunikacji: "+ _i(error));
+    }
+  });
+}
 
 exports.createProduct = function ( prodName, prodPrice, prodCode, catId, details, cb ){
 
@@ -274,7 +315,7 @@ exports.createProduct = function ( prodName, prodPrice, prodCode, catId, details
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'product.create',
 			[prod]
 		]
@@ -295,7 +336,7 @@ exports.createImage = function ( prodId, imgUrl, prodName, cb ){
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'product.image.save',
 			[parseInt(prodId), img, true]
 		]
@@ -309,7 +350,7 @@ exports.categoryDelete = function (id, cb ){
   var params = {
     'method' : 'call',
     'params' :	[
-      key,
+      exports.key,
       'category.delete',
       [id, false]
     ]
@@ -323,7 +364,7 @@ exports.saveProduct = function (productId, product, cb ){
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'product.save',
 			[productId, product, false]
 		]
@@ -360,7 +401,7 @@ exports.createCategory = function createCategory( name, parentId, cb ){
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'category.create',
 			[category]
 		]
@@ -391,7 +432,7 @@ exports.saveCategory = function saveCategory(name, parentId, id, cb){
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'category.save',
 			[id, category, false]
 		]
@@ -407,7 +448,7 @@ exports.getCategory = function getCategory(id, cb){
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'category.info',
 			[id, true]
 		]
@@ -423,7 +464,7 @@ exports.categoryTree = function getCategory(cb){
   var params = {
     'method' : 'call',
     'params' :	[
-      key,
+      exports.key,
       'category.tree',
       []
     ]
@@ -431,6 +472,23 @@ exports.categoryTree = function getCategory(cb){
 
   apiCall(params, cb)
 }
+
+exports.categoryTreeQ = function getCategory(o){
+  if (typeof o === 'undefined') {
+    o = {};
+  }
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'category.tree',
+      o.categoryId || []
+    ]
+  };
+
+  return apiCallQ(params);
+};
 
 exports.getProduct = function getProduct(id, cb){
 	if (typeof cb != "function")
@@ -446,7 +504,7 @@ exports.getProduct = function getProduct(id, cb){
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'product.info',
 			[id, true, false, false, true, false] //
 		]
@@ -471,7 +529,7 @@ exports.productListFilter = function getProduct(conditions, orderBy, limit, cb){
 	var params = {
 		'method' : 'call',
 		'params' :	[
-			key,
+			exports.key,
 			'product.list.filter',
 			[conditions, orderBy, limit]
 		]
@@ -480,11 +538,32 @@ exports.productListFilter = function getProduct(conditions, orderBy, limit, cb){
 	return apiCall(params, cb)
 };
 
+exports.productListFilterQ = function getProduct(o){
+
+   if (typeof o.orderBy === "undefined"){
+    o.orderBy = null;
+  }
+
+  if (typeof o.limit == "undefined")
+    o.limit = null;
+
+  var params = {
+    'method' : 'call',
+    'params' :	[
+      exports.key,
+      'product.list.filter',
+      [o.conditions, o.orderBy, o.limit]
+    ]
+  };
+
+  return apiCallQ(params)
+};
+
 exports.getImages = function(id, cb){
   var params = {
     'method' : 'call',
     'params' :	[
-      key,
+      exports.key,
       'product.images',
       [id]
     ]
@@ -496,7 +575,7 @@ exports.deleteImage = function(id, imgId, cb){
   var params = {
     'method' : 'call',
     'params' :	[
-      key,
+      exports.key,
       'product.image.delete',
       [id, imgId]
     ]
@@ -511,18 +590,19 @@ exports.login = function (cb){
 		'params' : [apiUsername, apiPassword]
 	};
 
-	if (key == '')
+	if (exports.key == '')
 		apiCall(params, function(content){
-			key = content;
+			exports.key = content;
       if (typeof cb != "undefined"){
         cb(content);
       }
 		});
 	else
-		cb();
+		cb(exports.key);
 };
 
-exports.loginQ = function (cb){
+exports.loginQ = function (apiUsername, apiPassword, apiUrl){
+  exports.apiUrl = apiUrl;
   var deferred = Q.defer();
 
   var params = {
@@ -530,17 +610,17 @@ exports.loginQ = function (cb){
     'params' : [apiUsername, apiPassword]
   };
 
-  if (key == '')
+  if (exports.key == ''){
     apiCall(params, function(content){
-      key = content;
-      if (typeof cb != "undefined"){
+      exports.key = content;
+//      if (typeof cb != "undefined"){
         deferred.resolve(content);
-//        cb(content);
-      }
+//      }
     });
+  }
   else{
 //    cb();
-    deferred.reject()
+    deferred.resolve(exports.key);
   }
 
   return deferred.promise;
@@ -553,7 +633,7 @@ exports.product_attributes = function(arrayOfIds, cb){
     var params = {
       'method' : "call",
       "params" : [
-        key,
+        exports.key,
         "product.attributes",
         arrayOfIds
       ]
@@ -566,19 +646,22 @@ exports.product_attributes = function(arrayOfIds, cb){
   }
 };// product_attributes
 
-
-exports.attribute_group_list = function(o, cb){
+exports.attribute_group_list = function(o){
 
   var params = {
       'method' : "call",
       "params" : [
-        key,
+        exports.key,
         "attribute.group.list",
-        [o.extended, o.attributes, o.attributeGroupList]
+        [
+              o.extended || false,
+              o.attributes || false,
+              o.groups || null
+        ]
       ]
     };
 
-    return apiCall(params, cb)
+    return apiCallQ(params)
 
 };// product_attributes
 
@@ -594,7 +677,7 @@ exports.product_list = function _product_list(o, cb){
   var params = {
     'method' : "call",
     "params" : [
-      key,
+      exports.key,
       "product.list",
       [
             o.extended || false,
@@ -607,7 +690,7 @@ exports.product_list = function _product_list(o, cb){
     ]
   };
 
-  return apiCall(params, cb)
+  return apiCallQ(params, cb)
 
 };
 
@@ -615,7 +698,7 @@ exports.product_attributes_save = function(o, cb){
   var params = {
     'method' : "call",
     "params" : [
-        key,
+        exports.key,
         "product.attributes.save",
         [
           o.id,
@@ -628,26 +711,7 @@ exports.product_attributes_save = function(o, cb){
   return apiCall(params, cb)
 };
 
-exports.attribute_group_list = function(o, cb){
-//  extended (boolean) - czy zwrócić tylko listę identyfikatorów (false), czy tablicę, której wartościami są tablice asocjacyjne informacji o żądanych obiektach (true)
-//  attributes (boolean) - czy pobrać informacje o atrybutach
-//  groups (array|null) - tablica identyfikatorów obiektów do pobrania lub null w celu pobrania wszystkich dostępnych obiektów
 
-  var params = {
-    'method' : "call",
-    "params" : [
-      key,
-      "attribute.group.list",
-      [
-            o.extended || false,
-            o.attributes || false,
-            o.groups || null
-      ]
-    ]
-  };
-
-  return apiCall(params, cb)
-};
 
 
 exports.product_attributes_save = function(o, cb){
@@ -658,7 +722,7 @@ exports.product_attributes_save = function(o, cb){
   var params = {
     'method' : "call",
     "params" : [
-      key,
+      exports.key,
       "product.attributes.save",
       [
             o.id,
