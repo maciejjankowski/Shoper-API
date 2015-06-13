@@ -366,7 +366,7 @@ exports.product.image.save = function (o){
   apiCallQ(params);
 }
 
-exports.category.delete = function (o, ){
+exports.category.delete = function (o){
 
   var params = {
     'method' : 'call',
