@@ -1,6 +1,6 @@
 {
   "name": "shoper-pl",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "author": "Maciej Artur Jankowski",
   "description": "API module for Shoper.pl",
   "main": "./api.js",
