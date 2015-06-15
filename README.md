@@ -1,9 +1,9 @@
-Shoper-API in node.js
+Shoper API in node.js
 ==========
 
 [API reference](http://www.shoper.pl/help/api)
 
-API do serwisu Shoper.pl napisane w node.js z użyciem request.
+API do serwisu Shoper.pl oraz ClickShop napisane w node.js z użyciem request oraz promises Q.
  
 Większość funkcji działa na promisach.
 Moduł zawiera tylko kilka funkcji, ale rozszerzenie go jest proste - wystarczy dopisać kolejną funkcję na podstawie istniejących. Należy zwrócić uwagę na nazwy argumentów przekazywane w obiekcie `options` do każdego wywołania. Szczegóły w kodzie oraz dokumentacji API shopera.
