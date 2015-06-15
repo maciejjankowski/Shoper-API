@@ -15,7 +15,8 @@ exports.key = '';
 
 exports.product = {
   list: {},
-  image : {}
+  image : {},
+  attributes : {}
 };
 
 exports.category = {};
@@ -322,7 +323,7 @@ exports.product.create = function ( prodName, prodPrice, prodCode, catId, detail
     ]
   };
 
-  return apiCallQ(params);
+  return apiCall(params);
 }
 
 exports.createImage = function ( prodId, imgUrl, prodName, cb ){
@@ -363,7 +364,7 @@ exports.product.image.save = function (o){
     ]
   };
 
-  apiCallQ(params);
+  apiCall(params);
 }
 
 exports.category.delete = function (o){
@@ -377,7 +378,7 @@ exports.category.delete = function (o){
     ]
   };
 
-  apiCallQ(params);
+  apiCall(params);
 };
 
 exports.categoryDelete = function (id, cb ){
@@ -405,7 +406,7 @@ exports.product.save = function (o ){
     ]
   };
 
-  apiCallQ(params);
+  apiCall(params);
 };
 
 exports.saveProduct = function (productId, product, cb ){
@@ -456,7 +457,7 @@ exports.category.create = function createCategory( o ){
     ]
   };
 
-  apiCallQ(params, cb)
+  apiCall(params, cb)
 }
 
 exports.createCategory = function createCategory( name, parentId, cb ){
@@ -522,7 +523,7 @@ exports.category.save = function saveCategory(o){
     ]
   };
 
-  apiCallQ(params)
+  apiCall(params)
 }
 
 exports.saveCategory = function saveCategory(name, parentId, id, cb){
@@ -602,7 +603,7 @@ exports.categoryTreeQ = function getCategory(o){
     ]
   };
 
-  return apiCallQ(params);
+  return apiCall(params);
 };
 
 exports.product.info = function getProduct(o, cb){
@@ -630,7 +631,7 @@ exports.product.info = function getProduct(o, cb){
     ]
   };
 
-  return apiCallQ(params, cb)
+  return apiCall(params, cb)
 }
 
 exports.getProduct = function getProduct(id, cb){
@@ -695,7 +696,7 @@ exports.product.list.filter = function getProduct(o){
     ]
   };
 
-  return apiCallQ(params)
+  return apiCall(params)
 };
 
 exports.getImages = function(id, cb){
@@ -798,7 +799,7 @@ exports.product.attributes = function(o, cb){
       ]
     };
 
-    return apiCallQ(params, cb)
+    return apiCall(params, cb)
 
   } else {
     return new Error("argument nie jest tablicą");
@@ -819,10 +820,9 @@ exports.attribute_group_list = exports.attribute.group.list = function(o){
       ]
     };
 
-    return apiCallQ(params)
+    return apiCall(params)
 
 };// product_attributes
-
 
 exports.product.list = exports.product_list = function _product_list(o, cb){
 //  extended (boolean) - czy zwrócić informacje o obiektach
@@ -848,7 +848,7 @@ exports.product.list = exports.product_list = function _product_list(o, cb){
     ]
   };
 
-  return apiCallQ(params, cb)
+  return apiCall(params, cb)
 
 };
 
@@ -869,7 +869,7 @@ exports.product_attributes_save = function(o, cb){
   return apiCall(params, cb)
 };
 
-product.attributes.save = exports.product_attributes_saveQ = function(o){
+exports.product_attributes_saveQ = exports.product.attributes.save = function(o){
 //  id (int) - identyfikator obiektu
 //  data (array) - tablica asocjacyjna, której kluczami są identyfikatory atrybutów a wartościami, ustawiane wartości atrybutu dla produktu
 //  force (boolean) - czy wymusić modyfikację obiektu mimo istniejącej blokady innego administratora
@@ -887,6 +887,6 @@ product.attributes.save = exports.product_attributes_saveQ = function(o){
     ]
   };
 
-  return apiCallQ(params)
+  return apiCall(params)
 };
 //834
